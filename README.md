@@ -1,26 +1,40 @@
-# MAMOUN POS — Multi-establishment cafe and restaurant SaaS
+# MAMOUN POS — POS multi-restaurants / cafés
 
-Standalone Next.js + Firebase application for the user's NEW POS repository. The existing Vercel project `pos-polyvalent` is intentionally reused. All OTHER repositories/projects remain untouched. Firebase must be a separate NEW project before activating real accounts.
+Application Next.js + Firebase indépendante. Références exactes :
+- **Source GitHub** : MROOMBARBER/POS-POLYVALENT (branche main)
+- **Vercel** : pos-polyvalent — https://pos-polyvalent.vercel.app
+- **Firebase** : pospolyvalent (ce projet uniquement)
 
-## Features
-- Platform owner sees all establishments, creates restaurant admin accounts, enables/suspends establishments.
-- Restaurant admin edits logo, banner, colors, menu pictures, categories, prices and tables without touching code.
-- Staff roles: kitchen, cashier, waiter; realtime order handling, restaurant POS, bill and server requests.
-- Public NFC/QR menu and server-verified order totals, cash/card preference, waiter call.
-- Orders and data partitioned by tenant ID with Firebase security rules.
+## Déploiement actuel
+Les variables de configuration Firebase Web (apiKey, authDomain, projectId, storageBucket, appId) sont installées dans Vercel. Cela configure le SDK client, **mais ne donne pas les droits administratifs au serveur**.
 
-## Public URL\n\nhttps://pos-polyvalent.vercel.app\n\n## Setup (REQUIRED before using real accounts)
-1. Create a NEW Firebase project. Enable Authentication > Email/Password, Cloud Firestore, and Storage (Firebase Storage may require a billing plan).
-2. Deploy `firestore.rules` and `storage.rules` under Firebase Console > Rules. The public API uses Admin SDK and validates prices against stored products.
-3. Set the 5 NEXT_PUBLIC_FIREBASE_* environment variables in Vercel from Firebase Project Settings > Web App.
-4. Create a service account for this NEW Firebase project and set `FIREBASE_SERVICE_ACCOUNT_JSON` as one line of JSON in Vercel's encrypted environment variables. Never put credentials in GitHub source. Deploy again.
-5. In Firebase Authentication, create your owner user with Email/Password. Copy its UID. In Firestore, create collection `superadmins`, document ID = exactly the UID; use field `enabled: true` (boolean). This step intentionally requires direct owner action to prevent anyone claiming ownership via public registration.
-6. Open the Vercel app and log in with the owner account. Create cafes from the Owner dashboard. Admin accounts are created through authenticated server routes with Firebase Authentication and profile documents. There is NO public sign-up.
-7. For production, set your domain; print each table's URL as QR or program it to NFC cards.
+### Il reste à activer avant tout usage réel
+1. Dans Firebase **pospolyvalent**, activer **Authentication > Sign-in method > Email/Password**, **Cloud Firestore** et **Storage**. Le bucket Storage peut nécessiter l'activation de la facturation.
+2. Déployer les règles livrées avec ce dépôt (uniquement sur **pospolyvalent**) à partir d'un terminal administrateur authentifié :
+   `firebase deploy --project pospolyvalent --only firestore:rules,storage`
+3. Dans Vercel **pos-polyvalent**, définir **FIREBASE_SERVICE_ACCOUNT_JSON** comme variable d'environnement **encrypted/sensitive**, avec la clé JSON générée pour **pospolyvalent**. Ne jamais la publier dans GitHub, une conversation, ni un navigateur. L'application rejette une clé d'un autre projet.
+4. Dans Firebase Authentication, créer le compte **propriétaire**, sur une adresse e-mail contrôlée. Dans un environnement de confiance ayant accès à la clé de service, exécuter :
+   `node scripts/bootstrap-owner.mjs votre-email@example.com`
+   Cet utilitaire nécessite **FIREBASE_SERVICE_ACCOUNT_JSON** dans son environnement sécurisé et n'autorise que le projet **pospolyvalent**.
+5. Redéployer Vercel après ajout des variables, ouvrir `/api/setup-status` et vérifier les indicateurs. Cet endpoint ne teste pas à lui seul les connexions réelles.
+6. Tester la connexion propriétaire, création d'un établissement, création d'un admin, modification du menu et du logo, création d'une table, parcours QR/NFC, commande client, réception en cuisine, encaissement, isolation des données entre deux établissements.
 
-## Important production caveats
-- Firebase pricing/quotas apply. Enable App Check, advanced rate limiting, backups, monitoring and automated tests before deploying at large scale.
-- Only one API-layer best-effort throttle currently protects customer events; use edge WAF/App Check for abuse resistance.
-- Both browser POS and public orders are server-priced. Review status transitions, refund policy, and fiscal compliance before large-scale rollout.
-- Admin can delete Firebase Auth users manually; disabling a staff user is a Firestore permission revoke, not an Auth deletion. For comprehensive account removal, add secure back-office Firebase Admin API flows.
-- Does not interface with payment terminals or tax-certified receipt/fiscal systems. 'Card' is a payment preference/record, not payment processing.
+## Fonctionnalités du code
+- Propriétaire (Super Admin) et comptes isolés par établissement.
+- Gestion du catalogue, des prix, images, catégories, tables et identité visuelle dans le dashboard.
+- Caisse POS, affichage cuisine et gestion des commandes.
+- Menu public QR/NFC; ajout au panier, appel serveur et demande d'addition (espèces/TPE).
+- Prix recalculés côté serveur à partir de la base. Préférence « carte » ≠ paiement TPE traité.
+- Rôles : propriétaire, admin, serveur, caissier, cuisine.
+
+## Sécurité
+- Le code et les rules **ne s'appliquent à Firebase que lorsqu'elles sont déployées** : committer un fichier `.rules` dans GitHub ne les active pas.
+- Garder les credentials du Firebase Admin SDK exclusivement côté serveur, chiffrés dans Vercel.
+- Firebase web `apiKey` est une clé publique de configuration SDK, pas une clé d'administration. Restreindre les APIs/domaines autorisés selon les bonnes pratiques Firebase.
+- Avant vente à grande échelle : App Check, protection anti-abus, sauvegardes, audit des flux de paiements, RGPD/données personnelles, tests d'isolation entre tenants et surveillance des quotas.
+- Les paiements par TPE et les reçus fiscaux certifiés ne sont **pas** intégrés.
+
+## Diagnostic
+- `GET /api/setup-status` : présence de la configuration publique et Firebase Admin (sans secrets).
+- Si `adminConfigured=false`, le backend des commandes publiques et de création des comptes ne peut pas fonctionner.
+- `readyState=READY` sur Vercel signifie **build réussi**, pas que Firebase Authentication/Firestore/Storage fonctionnent.
