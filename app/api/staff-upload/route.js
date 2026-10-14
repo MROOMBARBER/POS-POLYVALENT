@@ -50,6 +50,14 @@ export async function POST(request){
   return NextResponse.json({ok:true,url},{headers:{'Cache-Control':'no-store'}});
  }catch(error){
   console.error('tenant image upload',error?.code||error?.name||'unknown');
-  return fail('Téléversement indisponible',503);
+  const code=String(error?.code||'');
+  const message=String(error?.message||'');
+  if(code==='404'||/specified bucket does not exist|bucket not found|not found/i.test(message)){
+   return fail('Le stockage des photos n’est pas encore activé pour ce projet. Contactez le propriétaire pour terminer la création du bucket Firebase.',503);
+  }
+  if(code==='403'||/permission denied|does not have permission|insufficient permission/i.test(message)){
+   return fail('Le serveur n’a pas la permission de stocker des images. Vérifiez les autorisations Firebase Storage.',503);
+  }
+  return fail('Téléversement temporairement indisponible',503);
  }
 }
