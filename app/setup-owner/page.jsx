@@ -1,6 +1,6 @@
 'use client';
 import {useState} from 'react';
-import {createUserWithEmailAndPassword,signInWithEmailAndPassword,sendEmailVerification,signOut} from 'firebase/auth';
+import {createUserWithEmailAndPassword,signInWithEmailAndPassword,sendEmailVerification,sendPasswordResetEmail} from 'firebase/auth';
 import {auth} from '../../lib/firebase';
 
 export default function ActivateOwner(){
@@ -36,6 +36,16 @@ export default function ActivateOwner(){
    setError(descriptions[e.code]||e.message||'Erreur imprévue');
   }finally{setPending(false)}
  }
+ async function resetPassword(){
+  if(!auth){setError('Firebase Authentication n’est pas configuré.');return}
+  const address=email.trim().toLowerCase();
+  if(!address||!address.includes('@')){setError('Saisissez votre adresse e-mail avant de continuer.');return}
+  setPending(true);setError('');setMessage('');
+  try{
+   await sendPasswordResetEmail(auth,address);
+   setMessage('Si ce compte est enregistré, un e-mail de réinitialisation a été envoyé.');
+  }catch(e){setError(e.code==='auth/too-many-requests'?'Trop de tentatives. Réessayez plus tard.':'Envoi indisponible.')}finally{setPending(false)}
+ }
  async function resend(){
   setPending(true);setError('');setMessage('');
   try{
@@ -63,6 +73,7 @@ export default function ActivateOwner(){
     <button type="submit" disabled={pending} style={{padding:15,border:0,borderRadius:11,background:'#e6a16c',color:'#1a1511',fontSize:15,fontWeight:700,cursor:'pointer'}}>{pending?'Traitement…':'Activer mon compte'}</button>
     <button type="button" disabled={pending} onClick={()=>perform('signup')} style={{padding:13,border:'1px solid #58636e',borderRadius:11,background:'transparent',color:'#e7ecf0',cursor:'pointer'}}>Créer mon compte propriétaire</button>
     <button type="button" disabled={pending} onClick={resend} style={{background:'transparent',color:'#acbac7',border:0,padding:5,textDecoration:'underline',cursor:'pointer'}}>Renvoyer la vérification</button>
+    <button type="button" disabled={pending} onClick={resetPassword} style={{background:'transparent',color:'#acbac7',border:0,padding:5,textDecoration:'underline',cursor:'pointer'}}>Mot de passe oublié ?</button>
    </form>
    <p style={{fontSize:12,color:'#8597a6',marginTop:25,lineHeight:1.5}}>Votre adresse doit correspondre à l’adresse autorisée sur Vercel. Après la première activation, la procédure est verrouillée et les nouveaux cafés se gèrent depuis votre dashboard.</p>
   </section>
