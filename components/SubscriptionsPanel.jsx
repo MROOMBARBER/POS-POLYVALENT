@@ -1,6 +1,6 @@
 'use client';
 import {useEffect,useMemo,useState} from 'react';
-import {subscriptionStatus,casablancaDate} from '../lib/subscriptions';
+import {subscriptionStatus,casablancaDate,DEFAULT_MONTHLY_PRICE_MAD} from '../lib/subscriptions';
 
 const labels={active:'Actif',pending:'En attente',expired:'Expiré',suspended:'Suspendu',legacy:'Ancien accès (à configurer)',demo:'Démonstration gratuite'};
 function plusCalendarMonth(dateString){
@@ -21,7 +21,7 @@ function defaultPeriod(sub){
   status:sub?.status||'pending',
   startsOn:sub?.startsOn||today,
   endsOn:sub?.endsOn||plusCalendarMonth(today),
-  priceMad:sub?.priceMad===undefined?'':String(sub.priceMad),
+  priceMad:sub?.priceMad===undefined||(sub?.status==='pending'&&sub.priceMad===0&&!sub.updatedAt)?String(DEFAULT_MONTHLY_PRICE_MAD):String(sub.priceMad),
   notes:sub?.notes||''
  };
 }
@@ -68,7 +68,7 @@ export default function SubscriptionsPanel({tenants,selectedId,onBack,auth,onSav
   {label:'À configurer',value:summary.legacy||0}
  ];
  return <div style={{display:'grid',gap:20}}>
-  <div className="page-title"><div><span className="eyebrow">FACTURATION · MAMOUN POS</span><h1>Abonnements<span className="orange">.</span></h1><p>Gestion manuelle des abonnements mensuels en DH. Aucun paiement automatique n'est débité.</p></div><button className="btn outline" onClick={onBack}>← Établissements</button></div>
+  <div className="page-title"><div><span className="eyebrow">FACTURATION · MAMOUN POS</span><h1>Abonnements<span className="orange">.</span></h1><p>Tarif standard : {DEFAULT_MONTHLY_PRICE_MAD} DH / mois · Modifiable pour chaque établissement · Aucun prélèvement automatique.</p></div><button className="btn outline" onClick={onBack}>← Établissements</button></div>
   <div className="stats">{boxes.map(x=><div className="stat" key={x.label}><span className="stat-label">{x.label}</span><strong>{x.value}</strong></div>)}</div>
   <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,280px),1fr))',gap:20,alignItems:'start'}}>
    <section className="section">
@@ -84,7 +84,7 @@ export default function SubscriptionsPanel({tenants,selectedId,onBack,auth,onSav
     {current?.isDemo===true?<div style={{padding:16,borderRadius:12,background:'#f1f5f9'}}>Le café de démonstration est gratuit. Aucun abonnement n'est requis pour les tests.</div>:current?
     <form onSubmit={save} style={{display:'grid',gap:14}}>
      <p style={{fontSize:14,color:'#667085',margin:0}}>Statut actuel : <strong>{labels[subscriptionStatus(current)]||'—'}</strong>{daysRemaining!==null&&subscriptionStatus(current)==='active'?' · '+daysRemaining+' jour(s) restants':''}</p>
-     <label>Tarif mensuel (DH)<input type="number" step="0.01" min="0" max="100000" required placeholder="Ex. 199" value={form.priceMad} onChange={e=>set('priceMad',e.target.value)}/></label>
+     <label>Tarif mensuel (DH)<input type="number" step="0.01" min="0" max="100000" required placeholder={'Ex. '+DEFAULT_MONTHLY_PRICE_MAD} value={form.priceMad} onChange={e=>set('priceMad',e.target.value)}/></label>
      <label>État<select value={form.status} onChange={e=>set('status',e.target.value)}><option value="pending">En attente de règlement</option><option value="active">Actif</option><option value="suspended">Suspendu</option></select></label>
      <label>Début de période<input type="date" value={form.startsOn} onChange={e=>set('startsOn',e.target.value)} required={form.status==='active'}/></label>
      <label>Fin de période<input type="date" value={form.endsOn} onChange={e=>set('endsOn',e.target.value)} required={form.status==='active'}/></label>
