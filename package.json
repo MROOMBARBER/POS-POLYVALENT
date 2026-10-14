@@ -1,6 +1,19 @@
 {
- "name":"mamoun-pos","version":"1.0.0","private":true,
- "scripts":{"dev":"next dev","build":"next build","start":"next start"},
- "dependencies":{"next":"15.5.5","react":"19.1.1","react-dom":"19.1.1","firebase":"^11.10.0","firebase-admin":"^13.5.0","lucide-react":"^0.468.0"},
- "devDependencies":{}
+  "name": "mamoun-pos",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "next": "^16.4.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "firebase": "^11.10.0",
+    "firebase-admin": "^13.5.0",
+    "lucide-react": "^0.468.0"
+  },
+  "devDependencies": {}
 }
