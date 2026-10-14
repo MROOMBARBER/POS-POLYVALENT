@@ -1,6 +1,6 @@
 'use client';
 import {useEffect,useMemo,useState} from 'react';
-import {subscriptionStatus,casablancaDate,DEFAULT_MONTHLY_PRICE_MAD} from '../lib/subscriptions';
+import {subscriptionStatus,casablancaDate,DEFAULT_MONTHLY_PRICE_MAD,subscriptionExpiringSoon,daysUntilSubscriptionExpiry} from '../lib/subscriptions';
 
 const labels={active:'Actif',pending:'En attente',expired:'Expiré',suspended:'Suspendu',legacy:'Ancien accès (à configurer)',demo:'Démonstration gratuite'};
 function plusCalendarMonth(dateString){
@@ -63,19 +63,21 @@ export default function SubscriptionsPanel({tenants,selectedId,onBack,auth,onSav
  }
  const boxes=[
   {label:'Actifs',value:summary.active||0},
+  {label:'Expirent sous 3 jours',value:tenants.filter(t=>subscriptionExpiringSoon(t)).length},
   {label:'Expirés',value:summary.expired||0},
   {label:'En attente',value:summary.pending||0},
   {label:'À configurer',value:summary.legacy||0}
  ];
  return <div style={{display:'grid',gap:20}}>
   <div className="page-title"><div><span className="eyebrow">FACTURATION · MAMOUN POS</span><h1>Abonnements<span className="orange">.</span></h1><p>Tarif standard : {DEFAULT_MONTHLY_PRICE_MAD} DH / mois · Modifiable pour chaque établissement · Aucun prélèvement automatique.</p></div><button className="btn outline" onClick={onBack}>← Établissements</button></div>
+  {tenants.some(t=>subscriptionExpiringSoon(t))&&<div className="subscription-warning">⚠️ {tenants.filter(t=>subscriptionExpiringSoon(t)).length} abonnement(s) expirent sous 3 jours : renouvelez-les avant la date de fin.</div>}
   <div className="stats">{boxes.map(x=><div className="stat" key={x.label}><span className="stat-label">{x.label}</span><strong>{x.value}</strong></div>)}</div>
   <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,280px),1fr))',gap:20,alignItems:'start'}}>
    <section className="section">
     <div className="section-top"><div><h2>Établissements</h2><p>Choisir celui à gérer</p></div></div>
     <div style={{display:'grid',gap:8}}>
      {tenants.map(t=>{const status=subscriptionStatus(t);return <button type="button" key={t.id} onClick={()=>setId(t.id)} style={{textAlign:'left',border:'1px solid '+(id===t.id?'#df8c56':'#ddd'),background:id===t.id?'#fff7ef':'white',borderRadius:12,padding:14,cursor:'pointer'}}>
-       <b>{t.name}</b><div style={{marginTop:5,fontSize:13,color:'#677282'}}>{labels[status]||status}{t.subscription?.endsOn?' · '+t.subscription.endsOn:''}</div>
+       <b>{t.name}</b><div style={{marginTop:5,fontSize:13,color:'#677282'}}>{labels[status]||status}{t.subscription?.endsOn?' · '+t.subscription.endsOn:''}{subscriptionExpiringSoon(t)?' · ⚠️ '+daysUntilSubscriptionExpiry(t)+' j restant(s)':''}</div>
       </button>})}
     </div>
    </section>
