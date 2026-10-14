@@ -1,0 +1,33 @@
+name: Install MAMOUN POS application
+on:
+  push:
+    paths:
+      - 'part-07.txt'
+permissions:
+  contents: write
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Decode and validate application source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat part-{01..07}.txt | base64 -d > source.tar.xz
+          echo "0d50e3e895f5cc5fb7580c3a47ca67d5414538b8c47685fc7431b39ccb4e8e6d  source.tar.xz" | sha256sum -c -
+          python3 - <<'PY'
+          import tarfile, pathlib
+          with tarfile.open('source.tar.xz', 'r:xz') as tar:
+              for entry in tar:
+                  path = pathlib.PurePosixPath(entry.name)
+                  if path.is_absolute() or '..' in path.parts or entry.issym() or entry.islnk():
+                      raise Exception('Unsafe tar path')
+          PY
+          tar -xJf source.tar.xz
+          rm source.tar.xz part-{01..07}.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Install MAMOUN POS Next.js app and Firebase rules"
+          git push origin HEAD:main
