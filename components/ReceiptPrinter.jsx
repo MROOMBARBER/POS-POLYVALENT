@@ -2,6 +2,7 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {Printer,CheckCircle2,AlertTriangle,Play,Pause,RefreshCw,Settings,ReceiptText} from 'lucide-react';
 import {orderReceiptHtml} from '../lib/receipt';
+import CashDrawerPanel from './CashDrawerPanel';
 
 const KEY=t=>'mamoun-pos-80mm-station:'+t;
 const initial={enabled:false,startedAt:0,printed:{}};
@@ -129,6 +130,7 @@ export default function ReceiptPrinter({tenantId,tenant,orders,visible=false}){
  return <div className="printer-workstation">
   <div className="page-title"><div><span className="eyebrow">WD950 · TICKET CUISINE</span><h1>Impression 80mm<span className="orange">.</span></h1>
    <p>Une imprimante thermique USB connectée à <b>cette caisse</b>. Les commandes QR/NFC et Caisse POS arrivent en temps réel.</p></div></div>
+  <CashDrawerPanel tenantId={tenantId}/>
   <section className="section">
    <div className="printer-station-status"><span className={'status '+(state.enabled?'green':'gray')}>{state.enabled?'● STATION ACTIVE':'○ NON ACTIVÉE'}</span><span>Cette station ne fonctionne que quand MAMOUN POS reste ouvert sur le WD950.</span></div>
    <div className="printer-station-actions">
