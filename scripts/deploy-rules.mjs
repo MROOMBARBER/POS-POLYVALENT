@@ -2,6 +2,7 @@ import {readFile,writeFile,mkdir} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {cert,initializeApp,getApps} from 'firebase-admin/app';
 import {getSecurityRules} from 'firebase-admin/security-rules';
+import {getStorage} from 'firebase-admin/storage';
 
 const status={project:'pospolyvalent',attempted:false,firestore:'not-tested',storage:'not-tested',errorCode:null};
 if(process.env.MAMOUN_DEPLOY_RULES_ON_BUILD==='yes'){
@@ -39,6 +40,28 @@ if(process.env.MAMOUN_DEPLOY_RULES_ON_BUILD==='yes'){
  }catch(error){
   status.errorCode=String(error.message||error.code||'invalid-config').slice(0,80);
   console.error('Rules configuration error:',status.errorCode);
+ }
+}
+if(process.env.MAMOUN_PROBE_STORAGE_ON_BUILD==='yes'){
+ status.storageObjectWrite='not-tested';
+ status.storageObjectDelete='not-tested';
+ let object;
+ try{
+  const projectId='pospolyvalent',bucketName='pospolyvalent.firebasestorage.app';
+  if(process.env.VERCEL_ENV!=='production'||process.env.FIREBASE_PROJECT_ID!==projectId)throw Error('wrong-project');
+  const raw=JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON||'{}');
+  if(raw.project_id!==projectId||!raw.private_key)throw Error('wrong-credentials');
+  const app=getApps()[0]||initializeApp({credential:cert(raw),projectId,storageBucket:bucketName});
+  const bucket=getStorage(app).bucket(bucketName);
+  object=bucket.file('__system/pos-integration-check-'+Date.now()+'.txt');
+  await object.save(Buffer.from('MAMOUN POS storage test'),{resumable:false,contentType:'text/plain'});
+  status.storageObjectWrite='ok';
+  await object.delete();
+  status.storageObjectDelete='ok';
+ }catch(error){
+  status.storageProbeError=String(error?.message||error?.code||'storage-test-failed').slice(0,180);
+  console.error('POS storage diagnostic:',status.storageProbeError);
+  if(object){try{await object.delete()}catch{}}
  }
 }
 await mkdir(resolve('public'),{recursive:true});
