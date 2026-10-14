@@ -2,19 +2,22 @@ import {NextResponse} from 'next/server';
 import {getAuth as getAdminAuth} from 'firebase-admin/auth';
 import {FieldValue} from 'firebase-admin/firestore';
 import {getAdminDb} from '../../../../lib/firebase-admin';
+import {canOperate} from '../../../../lib/subscriptions';
 export const runtime='nodejs';
 const error=(message,status=400)=>NextResponse.json({error:message},{status});
 const clean=(x,n=200)=>String(x||'').trim().slice(0,n);
-async function access(req,tenantId){const db=getAdminDb();const token=req.headers.get('authorization')?.match(/^Bearer (.+)$/)?.[1];if(!token)return null;let decoded;try{decoded=await getAdminAuth().verifyIdToken(token,true)}catch{return null}const superDoc=await db.collection('superadmins').doc(decoded.uid).get();const owner=superDoc.exists&&superDoc.data()?.enabled===true;const profile=await db.collection('users').doc(decoded.uid).get();const user=profile.exists?profile.data():null;if(!owner&&(!user||!user.active||user.tenantId!==tenantId))return null;const tenant=await db.collection('tenants').doc(tenantId).get();if(!tenant.exists||tenant.data()?.status!=='active')return null;return {db,owner,user,uid:decoded.uid};}
+async function access(req,tenantId){const db=getAdminDb();const token=req.headers.get('authorization')?.match(/^Bearer (.+)$/)?.[1];if(!token)return null;let decoded;try{decoded=await getAdminAuth().verifyIdToken(token,true)}catch{return null}const superDoc=await db.collection('superadmins').doc(decoded.uid).get();const owner=superDoc.exists&&superDoc.data()?.enabled===true;const profile=await db.collection('users').doc(decoded.uid).get();const user=profile.exists?profile.data():null;if(!owner&&(!user||!user.active||user.tenantId!==tenantId))return null;const tenant=await db.collection('tenants').doc(tenantId).get();if(!tenant.exists||tenant.data()?.status!=='active')return null;return {db,owner,user,uid:decoded.uid,subscriptionAllowed:canOperate(tenant.data())};}
 export async function POST(req,{params}){
  try{const {action}=await params;const body=await req.json();const tenantId=clean(body.tenantId,100);if(!/^[\w-]{5,100}$/.test(tenantId))return error('Établissement invalide');const a=await access(req,tenantId);if(!a)return error('Accès interdit',403);
  if(action==='create-account'){
+  if(!a.owner&&!a.subscriptionAllowed)return error('Abonnement expiré : contactez le Super Admin',402);
   if(!a.owner&&a.user?.role!=='admin')return error('Accès interdit',403);
   const role=clean(body.role,16);if(!['admin','waiter','cashier','kitchen'].includes(role)||(!a.owner&&role==='admin'))return error('Rôle interdit');
   const email=clean(body.email,254).toLowerCase(),password=String(body.password||''),name=clean(body.name,100);if(!email.includes('@')||password.length<8||password.length>128||!name)return error('Email, nom et mot de passe de 8 caractères minimum requis');
   const record=await getAdminAuth().createUser({email,password,displayName:name,disabled:false});try{await a.db.collection('users').doc(record.uid).set({tenantId,email,role,name,active:true,createdAt:FieldValue.serverTimestamp()});}catch(e){await getAdminAuth().deleteUser(record.uid);throw e}return NextResponse.json({ok:true,uid:record.uid});
  }
  if(action==='order'){
+  if(!a.subscriptionAllowed)return error('Abonnement expiré : contactez le Super Admin',402);
   if(a.user?.role==='kitchen'&&!a.owner)return error('Accès interdit',403);
   if(!Array.isArray(body.items)||!body.items.length||body.items.length>40)return error('Panier invalide');
   const ref=a.db.collection('tenants').doc(tenantId),tableId=clean(body.tableId,100);let tableName='Comptoir';if(tableId!=='counter'){const t=await ref.collection('tables').doc(tableId).get();if(!t.exists||t.data().active===false)return error('Table inconnue');tableName=clean(t.data().name)}
