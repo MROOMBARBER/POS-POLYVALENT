@@ -1,7 +1,8 @@
-import {NextResponse} from 'next/server';
+import {NextResponse,after} from 'next/server';
 import {FieldValue} from 'firebase-admin/firestore';
 import {getAdminDb} from '../../../../lib/firebase-admin';
 import {canOperate} from '../../../../lib/subscriptions';
+import {notifyWaiters} from '../../../../lib/push';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
 function err(message,status=400){return NextResponse.json({error:message},{status,headers:{'Cache-Control':'no-store'}})}
@@ -35,6 +36,7 @@ export async function POST(req,{params}){
   }
   if(action==='bill'&&!['cash','card'].includes(body.paymentMethod))return err('Mode de paiement invalide');
   const id=c.ref.collection('requests').doc();await id.set({type:action,tableId,tableName:ts.data().name,paymentMethod:action==='bill'?body.paymentMethod:'',status:'pending',createdAt:FieldValue.serverTimestamp(),updatedAt:FieldValue.serverTimestamp()});
+  after(async()=>{try{await notifyWaiters(c.ref,{type:action,tableName:clean(ts.data().name,100),paymentMethod:action==='bill'?body.paymentMethod:''})}catch(e){console.error('post-request notification',e?.code||e?.name||'unknown')}});
   return NextResponse.json({ok:true,id:id.id});
  }catch(e){console.error('public',e.message);return err('Service indisponible',503)}
 }
