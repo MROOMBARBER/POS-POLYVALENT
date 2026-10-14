@@ -21,12 +21,12 @@ export async function POST(request,{params}){
   if(!pushConfigAvailable())return err('Notifications non configurées',503);
   const token=request.headers.get('authorization')?.match(/^Bearer (.+)$/)?.[1];
   if(!token)return err('Connexion requise',401);
+  const db=getAdminDb();
   let decoded;
   try{decoded=await getAuth().verifyIdToken(token,true)}catch{return err('Session expirée',401)}
   const body=await request.json();
   const tenantId=String(body?.tenantId||'');
   if(!/^[A-Za-z0-9_-]{5,100}$/.test(tenantId))return err('Restaurant invalide',400);
-  const db=getAdminDb();
   const tenantRef=db.collection('tenants').doc(tenantId);
   const [tenant,superDoc,profileDoc]=await Promise.all([
    tenantRef.get(),db.collection('superadmins').doc(decoded.uid).get(),db.collection('users').doc(decoded.uid).get()
@@ -47,7 +47,11 @@ export async function POST(request,{params}){
    return NextResponse.json({ok:true},{headers});
   }
   const exists=await ref.get();
-  if(exists.exists&&exists.data()?.uid!==decoded.uid)return err('Abonnement déjà lié à un autre compte',409);
+  // The same browser endpoint can be re-linked after staff switches accounts on a shared device.
+  // Only the physically held browser subscription (including its keys) may be re-registered.
+  if(exists.exists&&exists.data()?.uid!==decoded.uid&&(
+    exists.data()?.keys?.auth!==s.keys.auth||exists.data()?.keys?.p256dh!==s.keys.p256dh
+  ))return err('Cet appareil est déjà lié à un autre compte',409);
   const active=await tenantRef.collection('pushSubscriptions').where('uid','==',decoded.uid).limit(8).get();
   if(!exists.exists&&active.size>=5)return err('Maximum 5 appareils. Retirez un ancien abonnement.',429);
   await ref.set({uid:decoded.uid,role,endpoint:s.endpoint,keys:{p256dh:s.keys.p256dh,auth:s.keys.auth},
