@@ -1,6 +1,6 @@
 # MAMOUN POS — Multi-establishment cafe and restaurant SaaS
 
-Fresh standalone Next.js + Firebase project. No existing repositories, Firebase projects, or Vercel projects are reused.
+Standalone Next.js + Firebase application for the user's NEW POS repository. The existing Vercel project `pos-polyvalent` is intentionally reused. All OTHER repositories/projects remain untouched. Firebase must be a separate NEW project before activating real accounts.
 
 ## Features
 - Platform owner sees all establishments, creates restaurant admin accounts, enables/suspends establishments.
@@ -9,7 +9,7 @@ Fresh standalone Next.js + Firebase project. No existing repositories, Firebase 
 - Public NFC/QR menu and server-verified order totals, cash/card preference, waiter call.
 - Orders and data partitioned by tenant ID with Firebase security rules.
 
-## Setup (REQUIRED before using real accounts)
+## Public URL\n\nhttps://pos-polyvalent.vercel.app\n\n## Setup (REQUIRED before using real accounts)
 1. Create a NEW Firebase project. Enable Authentication > Email/Password, Cloud Firestore, and Storage (Firebase Storage may require a billing plan).
 2. Deploy `firestore.rules` and `storage.rules` under Firebase Console > Rules. The public API uses Admin SDK and validates prices against stored products.
 3. Set the 5 NEXT_PUBLIC_FIREBASE_* environment variables in Vercel from Firebase Project Settings > Web App.
