@@ -3,7 +3,7 @@ import {getAuth} from 'firebase-admin/auth';
 import {FieldValue} from 'firebase-admin/firestore';
 import {getAdminDb} from '../../../../lib/firebase-admin';
 import {canOperate} from '../../../../lib/subscriptions';
-import {PUSH_ROLES,pushConfigAvailable,pushDocId,validSubscription} from '../../../../lib/push';
+import {PUSH_ROLES,pushConfigAvailable,pushDocId,validSubscription,sendTestWaiterPush} from '../../../../lib/push';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -16,7 +16,7 @@ export async function GET(request,{params}){
 }
 export async function POST(request,{params}){
  const {action}=await params;
- if(action!=='subscribe'&&action!=='unsubscribe')return err('Route inconnue',404);
+ if(!['subscribe','unsubscribe','test'].includes(action))return err('Route inconnue',404);
  try{
   if(!pushConfigAvailable())return err('Notifications non configurées',503);
   const token=request.headers.get('authorization')?.match(/^Bearer (.+)$/)?.[1];
@@ -38,6 +38,20 @@ export async function POST(request,{params}){
   if(owner)role='owner';
   else if(profileDoc.exists&&profile.active===true&&profile.tenantId===tenantId&&['waiter','admin'].includes(profile.role))role=profile.role;
   if(!PUSH_ROLES.includes(role))return err('Accès interdit',403);
+  if(action==='test'){
+   const throttle=tenantRef.collection('pushTestLimits').doc(decoded.uid);
+   const allowed=await db.runTransaction(async tx=>{
+    const prior=await tx.get(throttle);
+    if(prior.exists&&Number(prior.data()?.nextAt||0)>Date.now())return false;
+    tx.set(throttle,{nextAt:Date.now()+30000,updatedAt:FieldValue.serverTimestamp()});
+    return true;
+   });
+   if(!allowed)return err('Patientez 30 secondes avant le prochain test',429);
+   const result=await sendTestWaiterPush(tenantRef,decoded.uid);
+   if(!result.registered)return err('Aucun téléphone enregistré. Appuyez d’abord sur Activer les notifications.',409);
+   if(!result.sent)return err('L’envoi du test a échoué. Réactivez les notifications sur ce téléphone.',503);
+   return NextResponse.json({ok:true,sent:result.sent,registered:result.registered},{headers});
+  }
   const s=body?.subscription;
   if(!validSubscription(s))return err('Abonnement de notification invalide',400);
   const ref=tenantRef.collection('pushSubscriptions').doc(pushDocId(s.endpoint));
