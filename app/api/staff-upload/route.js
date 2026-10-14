@@ -41,6 +41,46 @@ export async function POST(request){
   if(!isOwner&&!isManager)return fail('Accès interdit',403);
   const bytes=Buffer.from(await file.arrayBuffer());
   if(!validMagic(bytes,file.type))return fail('Image invalide',400);
+  // Cloudinary Free can host the images while Firebase Auth/Firestore stay unchanged.
+  // All credentials remain server-side; tenant auth and file validation above still apply.
+  const cloudName=process.env.CLOUDINARY_CLOUD_NAME||'';
+  const cloudKey=process.env.CLOUDINARY_API_KEY||'';
+  const cloudSecret=process.env.CLOUDINARY_API_SECRET||'';
+  const cloudConfigured=[cloudName,cloudKey,cloudSecret].every(Boolean);
+  if([cloudName,cloudKey,cloudSecret].some(Boolean)&&!cloudConfigured){
+   return fail('Configuration Cloudinary incomplète. Vérifiez les 3 variables Vercel.',503);
+  }
+  if(cloudConfigured){
+   if(!/^[a-zA-Z0-9_-]{2,100}$/.test(cloudName))return fail('Nom Cloudinary invalide',503);
+   const payload=new FormData();
+   payload.set('file',new Blob([new Uint8Array(bytes)],{type:file.type}),'image.'+allowed[file.type]);
+   payload.set('folder','mamoun-pos/tenants/'+tenantId);
+   payload.set('overwrite','false');
+   payload.set('unique_filename','true');
+   let response;
+   try{
+    response=await fetch('https://api.cloudinary.com/v1_1/'+encodeURIComponent(cloudName)+'/image/upload',{
+     method:'POST',
+     headers:{Authorization:'Basic '+Buffer.from(cloudKey+':'+cloudSecret).toString('base64')},
+     body:payload,
+     signal:AbortSignal.timeout(25000)
+    });
+   }catch(error){
+    console.error('Cloudinary upload network error',error?.name||'network');
+    return fail('Connexion au service de photos indisponible. Réessayez.',503);
+   }
+   if(!response.ok){
+    console.error('Cloudinary upload rejected, HTTP',response.status);
+    return fail(response.status===429?'Limite de téléversement atteinte. Réessayez plus tard.':'Service de photos temporairement indisponible. Vérifiez le compte Cloudinary.',503);
+   }
+   let uploaded;
+   try{uploaded=await response.json()}catch{return fail('Réponse Cloudinary non valide.',503)}
+   const imageUrl=String(uploaded?.secure_url||'');
+   if(!imageUrl.startsWith('https://res.cloudinary.com/'+cloudName+'/')||!uploaded?.public_id){
+    return fail('Lien de la photo non valide.',503);
+   }
+   return NextResponse.json({ok:true,url:imageUrl,provider:'cloudinary'},{headers:{'Cache-Control':'no-store'}});
+  }
   const objectPath='tenants/'+tenantId+'/images/'+randomUUID()+'.'+allowed[file.type];
   const bucket=getStorage().bucket(BUCKET);
   const object=bucket.file(objectPath);
