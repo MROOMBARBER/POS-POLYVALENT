@@ -129,3 +129,16 @@
 .waiter-order-footer b{font-size:16px}
 .waiter-order-footer span{font-size:11px;color:#718798;text-align:right}
 .waiter-kitchen-hint{display:block;color:#34775f;font-size:12px;font-weight:600}
+
+/* WD950 USB 80mm local print station */
+.printer-workstation .printer-station-status{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:17px}
+.printer-station-status>span:last-child{font-size:13px;color:#728092}
+.printer-station-actions{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.printer-station-actions .btn{white-space:normal}
+.printer-info{display:flex;align-items:center;gap:9px;padding:12px 14px;border-radius:10px;background:#eaf4fb;border:1px solid #d0e4f1;color:#37657f;font-size:13px;line-height:1.5;margin-bottom:17px}
+.printer-setup{padding:18px;background:#f8f9fb;border-radius:12px;border:1px solid #e9ecf0}
+.printer-setup h3{font-size:15px;display:flex;align-items:center;gap:8px;margin:0 0 12px}
+.printer-setup p{font-size:13px;margin:10px 0;color:#596677;line-height:1.55}
+.printer-setup code{background:#e8edf1;border-radius:5px;padding:2px 5px;color:#283641}
+.printer-setup .printer-caution{display:flex;align-items:flex-start;gap:8px;color:#9b5f24;font-weight:600;background:#fff4df;padding:10px;border-radius:8px;margin-top:16px}
+@media(max-width:600px){.printer-station-actions{flex-direction:column}.printer-station-actions .btn{width:100%}}
