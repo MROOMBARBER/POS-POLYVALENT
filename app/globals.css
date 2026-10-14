@@ -142,3 +142,15 @@
 .printer-setup code{background:#e8edf1;border-radius:5px;padding:2px 5px;color:#283641}
 .printer-setup .printer-caution{display:flex;align-items:flex-start;gap:8px;color:#9b5f24;font-weight:600;background:#fff4df;padding:10px;border-radius:8px;margin-top:16px}
 @media(max-width:600px){.printer-station-actions{flex-direction:column}.printer-station-actions .btn{width:100%}}
+
+/* Opt-in physically local cash drawer; independent of kitchen receipt printing */
+.drawer-setup .section-top h2{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.drawer-rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:9px;margin:15px 0 19px}
+.drawer-rules>div{background:#f7f9fa;border:1px solid #ebedef;border-radius:11px;padding:13px;font-size:13px;line-height:1.5;display:flex;align-items:center;gap:8px}
+.drawer-rules svg{flex-shrink:0;color:#658c78}
+.drawer-feedback{display:flex;align-items:flex-start;gap:8px;padding:12px;border-radius:10px;font-size:13px;margin:10px 0;line-height:1.55}
+.drawer-feedback span{flex:1}
+.drawer-feedback svg{flex-shrink:0}
+.drawer-name{color:#6a7888;font-size:13px}
+.drawer-setup .printer-caution{display:flex;align-items:flex-start;gap:8px;background:#fff6e7;color:#9f682e;padding:13px;border-radius:10px;font-size:12px;line-height:1.55}
+.drawer-setup .printer-caution svg{flex-shrink:0}
