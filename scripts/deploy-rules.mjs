@@ -33,6 +33,7 @@ if(process.env.MAMOUN_DEPLOY_RULES_ON_BUILD==='yes'){
   }catch(error){
    status.storage='failed';
    status.errorCode=String(error.code||error.name||'storage-error').slice(0,80);
+   status.storageError=String(error.message||'Firebase Storage rules publication failed').slice(0,350).replace(/AIza[0-9A-Za-z_-]{30,}/g,'[redacted]');
    console.error('Storage rules release error:',status.errorCode,String(error.message||'').slice(0,220));
   }
  }catch(error){
