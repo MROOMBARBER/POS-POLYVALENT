@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "prebuild": "node scripts/deploy-rules.mjs && node scripts/bootstrap-owner-build.mjs && node scripts/create-test-cafe.mjs"
+    "prebuild": "node scripts/deploy-rules.mjs && node scripts/bootstrap-owner-build.mjs && node scripts/create-test-cafe.mjs && node scripts/probe-storage-buckets.mjs"
   },
   "dependencies": {
     "next": "^16.4.0",
