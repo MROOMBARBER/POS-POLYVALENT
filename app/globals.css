@@ -122,3 +122,10 @@
  .public-brand b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:165px;font-size:13px}
  .public-brand small{font-size:9px}
 }
+
+/* Incoming client orders on waiter dashboard */
+.waiter-request.new-order{border-left-color:#318aa7;background:#f7fcff}
+.waiter-order-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid #e3edf2;padding-top:10px}
+.waiter-order-footer b{font-size:16px}
+.waiter-order-footer span{font-size:11px;color:#718798;text-align:right}
+.waiter-kitchen-hint{display:block;color:#34775f;font-size:12px;font-weight:600}
