@@ -37,7 +37,7 @@ if(process.env.MAMOUN_BOOTSTRAP_OWNER_ON_BUILD==='yes'){
     if(savedOwner.exists&&savedOwner.data()?.enabled===true&&savedOwner.data()?.email===email)return 'already-active';
     throw Error('owner-bootstrap-marker-inconsistent');
    }
-   const existing=await db.collection('superadmins').limit(2).get();
+   const existing=await tx.get(db.collection('superadmins').limit(20));
    if(existing.docs.some(doc=>doc.id!==uid&&doc.data()?.enabled===true))throw Error('another-active-owner-exists');
    if(savedOwner.exists&&savedOwner.data()?.email&&savedOwner.data().email!==email)throw Error('owner-record-email-mismatch');
    tx.set(owner,{enabled:true,email,createdAt:FieldValue.serverTimestamp()},{merge:true});
