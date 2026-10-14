@@ -32,6 +32,8 @@ export async function POST(req,{params}){
    for(const entry of body.items){const p=prices.get(clean(entry.id,150)),qty=Number(entry.qty);if(!p||!Number.isInteger(qty)||qty<1||qty>30||!Number.isFinite(p.price)||p.price<0)return err('Article ou quantité invalide');const line=Math.round(p.price*qty*100)/100;total+=line;items.push({productId:clean(entry.id,150),name:clean(p.name,160),unitPrice:p.price,qty,total:line});}
    total=Math.round(total*100)/100;
    const id=c.ref.collection('orders').doc();await id.set({tableId,tableName:ts.data().name,items,total,status:'pending',source:'customer',note:clean(body.note,350),paymentMethod:'',createdAt:FieldValue.serverTimestamp(),updatedAt:FieldValue.serverTimestamp()});
+   // Customer order is persisted before push. A delivery failure cannot cancel the order.
+   after(async()=>{try{await notifyWaiters(c.ref,{type:'order',tableName:clean(ts.data().name,100),items})}catch(e){console.error('post-order notification',e?.code||e?.name||'unknown')}});
    return NextResponse.json({ok:true,id:id.id,total});
   }
   if(action==='bill'&&!['cash','card'].includes(body.paymentMethod))return err('Mode de paiement invalide');
