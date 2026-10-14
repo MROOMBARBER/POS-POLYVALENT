@@ -3,6 +3,7 @@ import {randomUUID} from 'node:crypto';
 import {getAuth} from 'firebase-admin/auth';
 import {getStorage,getDownloadURL} from 'firebase-admin/storage';
 import {getAdminDb} from '../../../lib/firebase-admin';
+import {canOperate} from '../../../lib/subscriptions';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -38,6 +39,7 @@ export async function POST(request){
   const isOwner=owner.exists&&owner.data()?.enabled===true;
   const isManager=profile.exists&&profile.data()?.active===true&&profile.data()?.role==='admin'&&profile.data()?.tenantId===tenantId;
   if(!tenant.exists||tenant.data()?.status!=='active')return fail('Établissement indisponible',404);
+  if(!canOperate(tenant.data()))return fail('Abonnement expiré ou suspendu : contactez MAMOUN POS',402);
   if(!isOwner&&!isManager)return fail('Accès interdit',403);
   const bytes=Buffer.from(await file.arrayBuffer());
   if(!validMagic(bytes,file.type))return fail('Image invalide',400);
