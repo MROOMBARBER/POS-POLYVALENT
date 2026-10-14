@@ -1,8 +1,9 @@
-import {NextResponse} from 'next/server';
+import {NextResponse,after} from 'next/server';
 import {getAuth as getAdminAuth} from 'firebase-admin/auth';
 import {FieldValue} from 'firebase-admin/firestore';
 import {getAdminDb} from '../../../../lib/firebase-admin';
 import {canOperate} from '../../../../lib/subscriptions';
+import {notifyWaiters} from '../../../../lib/push';
 export const runtime='nodejs';
 const error=(message,status=400)=>NextResponse.json({error:message},{status});
 const clean=(x,n=200)=>String(x||'').trim().slice(0,n);
@@ -22,7 +23,9 @@ export async function POST(req,{params}){
   if(!Array.isArray(body.items)||!body.items.length||body.items.length>40)return error('Panier invalide');
   const ref=a.db.collection('tenants').doc(tenantId),tableId=clean(body.tableId,100);let tableName='Comptoir';if(tableId!=='counter'){const t=await ref.collection('tables').doc(tableId).get();if(!t.exists||t.data().active===false)return error('Table inconnue');tableName=clean(t.data().name)}
   const ids=[...new Set(body.items.map(i=>clean(i.id,150)))];const snaps=await Promise.all(ids.map(id=>ref.collection('products').doc(id).get()));const products=new Map(snaps.filter(s=>s.exists&&s.data().active!==false).map(s=>[s.id,s.data()]));let total=0;const items=[];for(const entry of body.items){const p=products.get(clean(entry.id,150)),qty=Number(entry.qty);if(!p||!Number.isInteger(qty)||qty<1||qty>30||!Number.isFinite(p.price)||p.price<0)return error('Article invalide');const line=Math.round(p.price*qty*100)/100;items.push({productId:clean(entry.id,150),name:clean(p.name,160),unitPrice:p.price,qty,total:line});total+=line}total=Math.round(total*100)/100;
-  const order=await ref.collection('orders').add({tableId,tableName,items,total,source:'staff',status:'pending',createdBy:a.uid,paymentMethod:'',createdAt:FieldValue.serverTimestamp(),updatedAt:FieldValue.serverTimestamp()});return NextResponse.json({ok:true,id:order.id,total});
+  const order=await ref.collection('orders').add({tableId,tableName,items,total,source:'staff',status:'pending',createdBy:a.uid,paymentMethod:'',createdAt:FieldValue.serverTimestamp(),updatedAt:FieldValue.serverTimestamp()});
+  after(async()=>{try{await notifyWaiters(ref,{type:'order',tableName,items})}catch(e){console.error('staff order push',e?.code||e?.name||'unknown')}});
+  return NextResponse.json({ok:true,id:order.id,total});
  }
  return error('Route inconnue',404);
  }catch(e){console.error('staff action',e?.code||e?.message);return error('Service indisponible',503)}
