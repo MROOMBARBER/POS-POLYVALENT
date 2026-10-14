@@ -1,10 +1,28 @@
 rules_version = '2';
 service firebase.storage {
  match /b/{bucket}/o {
-   function admin(t){return request.auth != null && (firestore.exists(/databases/(default)/documents/superadmins/$(request.auth.uid)) || (firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)) && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.tenantId == t && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin' && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.active == true));}
+   function signed() { return request.auth != null; }
+   function owner() {
+     return signed()
+       && firestore.exists(/databases/(default)/documents/superadmins/$(request.auth.uid))
+       && firestore.get(/databases/(default)/documents/superadmins/$(request.auth.uid)).data.enabled == true;
+   }
+   function tenantAdmin(t) {
+     return signed()
+       && firestore.exists(/databases/(default)/documents/users/$(request.auth.uid))
+       && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.tenantId == t
+       && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin'
+       && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.active == true;
+   }
+   function acceptedImage() {
+     return request.resource.size > 0
+       && request.resource.size <= 5 * 1024 * 1024
+       && request.resource.contentType.matches('image/(jpeg|png|webp|gif)');
+   }
    match /tenants/{tenantId}/images/{name} {
-    allow read: if true;
-    allow write: if admin(tenantId) && request.resource.size < 5 * 1024 * 1024 && request.resource.contentType.matches('image/.*');
+     allow read: if true;
+     allow create, update: if (owner() || tenantAdmin(tenantId)) && acceptedImage();
+     allow delete: if owner() || tenantAdmin(tenantId);
    }
  }
 }
