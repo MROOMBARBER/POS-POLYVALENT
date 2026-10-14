@@ -1,0 +1,38 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signed(){ return request.auth != null; }
+    function superadmin(){ return signed() && exists(/databases/$(database)/documents/superadmins/$(request.auth.uid)) && get(/databases/$(database)/documents/superadmins/$(request.auth.uid)).data.enabled == true; }
+    function profile(){ return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function employee(t){ return signed() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && profile().tenantId == t && profile().active == true; }
+    function manager(t){return superadmin() || (employee(t) && profile().role == 'admin');}
+    function team(t){return superadmin() || employee(t);}
+    match /superadmins/{uid} {allow read: if signed() && request.auth.uid == uid; allow write: if false;}
+    match /users/{uid} {
+      allow read: if superadmin() || (signed() && request.auth.uid == uid) || (signed() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && resource.data.tenantId == profile().tenantId && profile().role == 'admin');
+      allow create: if false;
+      allow update: if superadmin() || (signed() && profile().role == 'admin' && resource.data.tenantId == profile().tenantId && request.resource.data.tenantId == resource.data.tenantId && request.resource.data.role == resource.data.role && resource.data.role in ['waiter','cashier','kitchen']);
+      allow delete: if superadmin();
+    }
+    match /tenants/{tenantId} {
+      allow read: if team(tenantId);
+      allow create,delete: if superadmin();
+      allow update: if superadmin() || (manager(tenantId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name','subtitle','logo','cover','accent','address','phone','currency']));
+      match /products/{id} {allow read: if team(tenantId); allow write: if manager(tenantId);}
+      match /tables/{id} {allow read: if team(tenantId); allow write: if manager(tenantId);}
+      match /orders/{id} {
+        allow read: if team(tenantId);
+        allow create: if false;
+        allow update: if team(tenantId) && (superadmin() || profile().role in ['admin','cashier','kitchen','waiter']) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','paymentMethod','updatedAt']) && request.resource.data.status in ['pending','preparing','ready','served','paid','cancelled'] && (request.resource.data.status != 'paid' || superadmin() || profile().role in ['admin','cashier']) && resource.data.status != 'paid' && resource.data.status != 'cancelled';
+        allow delete: if false;
+      }
+      match /requests/{id} {
+        allow read: if team(tenantId);
+        allow update: if team(tenantId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','updatedAt']);
+        allow create,delete: if false;
+      }
+      match /{document=**} {allow read,write: if false;}
+    }
+    match /{document=**} {allow read, write: if false;}
+  }
+}

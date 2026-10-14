@@ -1,0 +1,10 @@
+rules_version = '2';
+service firebase.storage {
+ match /b/{bucket}/o {
+   function admin(t){return request.auth != null && (firestore.exists(/databases/(default)/documents/superadmins/$(request.auth.uid)) || (firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)) && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.tenantId == t && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin' && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.active == true));}
+   match /tenants/{tenantId}/images/{name} {
+    allow read: if true;
+    allow write: if admin(tenantId) && request.resource.size < 5 * 1024 * 1024 && request.resource.contentType.matches('image/.*');
+   }
+ }
+}
