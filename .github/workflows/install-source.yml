@@ -1,33 +1,38 @@
-name: Install MAMOUN POS application
+name: Install standalone MAMOUN POS
 on:
   push:
     paths:
-      - 'part-07.txt'
+      - 'source.tar.xz.b64'
 permissions:
   contents: write
 jobs:
   install:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Decode and validate application source
+      - name: Checkout new POS repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Verify and extract reviewed POS source
         shell: bash
         run: |
           set -euo pipefail
-          cat part-{01..07}.txt | base64 -d > source.tar.xz
+          base64 -d source.tar.xz.b64 > source.tar.xz
           echo "0d50e3e895f5cc5fb7580c3a47ca67d5414538b8c47685fc7431b39ccb4e8e6d  source.tar.xz" | sha256sum -c -
           python3 - <<'PY'
-          import tarfile, pathlib
-          with tarfile.open('source.tar.xz', 'r:xz') as tar:
-              for entry in tar:
-                  path = pathlib.PurePosixPath(entry.name)
-                  if path.is_absolute() or '..' in path.parts or entry.issym() or entry.islnk():
-                      raise Exception('Unsafe tar path')
+          import tarfile
+          from pathlib import PurePosixPath
+          with tarfile.open("source.tar.xz", "r:xz") as tf:
+              for m in tf.getmembers():
+                  p = PurePosixPath(m.name)
+                  if p.is_absolute() or ".." in p.parts or not (m.isfile() or m.isdir()):
+                      raise ValueError("Unsafe archive entry")
           PY
           tar -xJf source.tar.xz
-          rm source.tar.xz part-{01..07}.txt
+          rm source.tar.xz source.tar.xz.b64
+          rm -f part-01.txt part-02.txt
+          rm -f .github/workflows/unpack.yml .github/workflows/install-source.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "Install MAMOUN POS Next.js app and Firebase rules"
-          git push origin HEAD:main
+          git add --all
+          git diff --cached --quiet || (git commit -m "Deploy MAMOUN POS: standalone Next.js and Firebase rules" && git push origin HEAD:main)
