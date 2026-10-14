@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "prebuild": "node scripts/deploy-rules.mjs"
+    "prebuild": "node scripts/deploy-rules.mjs && node scripts/bootstrap-owner-build.mjs"
   },
   "dependencies": {
     "next": "^16.4.0",
