@@ -29,3 +29,25 @@ Projet séparé de tous les anciens projets.
 - En l'absence de bucket réel, la fonction photo ne peut pas réussir.
 - Le champ TPE signifie demande au serveur d'apporter son terminal de paiement, pas encaissement TPE intégré.
 - Pour commercialiser à grande échelle : sauvegardes, limitation des abus par identité/IP, vérification des permissions et des journaux, impression fiscale applicable et tests d'isolation multi-tenants.
+
+
+## Abonnements mensuels des cafés (v1 — paiement manuel)
+
+Le Super Admin ouvre **Établissements → Abonnements**, puis choisit un établissement. Il peut :
+- fixer librement le tarif mensuel en MAD (aucun tarif commercial n'est codé en dur) ;
+- saisir la date de début et la date de fin, prolonger d'un mois et renouveler ;
+- activer, laisser en attente ou suspendre le contrat ;
+- consulter le statut calculé *Actif / Expiré / Suspendu / En attente / Ancien accès / Démo*.
+
+Les écritures passent exclusivement par `POST /api/admin/subscriptions`, qui vérifie le Firebase ID token et le rôle de Super Admin, valide les dates et le prix, puis garde un journal dans `tenants/{id}/subscriptionEvents`. Chaque renouvellement comprend un `expiresAt` Firestore Timestamp calculé pour minuit au Maroc à la fin du jour sélectionné. Les règles Firestore publiées vérifient `expiresAt > request.time` avant les écritures non-propriétaire. Les endpoints serveur de commandes et d'envoi d'images vérifient aussi l'abonnement. Le menu QR refuse les commandes des restaurants non actifs. Les commandes historiques ne sont pas supprimées.
+
+Les nouveaux établissements sont créés **en attente** d'activation (abonnement à définir par le Super Admin). Le café `mamoun-cafe-test` reste une démo gratuite ; les anciens établissements sans champ `subscription` conservent provisoirement l'accès pour éviter une coupure accidentelle. Le Super Admin doit leur attribuer un contrat pour appliquer l'expiration.
+
+**Aucun paiement ou débit automatique n'est intégré** : la validation du virement/espèces se fait hors plateforme. Les prix, dates et statuts sont décidés par le propriétaire. Le POS ne produit pas de facture fiscale ni de relance automatique dans cette version.
+
+## État de vérification du module abonnements
+- Next.js compilé avec succès dans un environnement isolé.
+- Publication des nouvelles règles Firestore confirmée par Firebase Admin SDK (`released`).
+- Route des abonnements sans authentification vérifiée : HTTP 401.
+- Menu public de `mamoun-cafe-test` vérifié : HTTP 200, avec ses 3 articles et 2 tables.
+- Les tests de bout en bout « créer, prolonger et expirer un abonnement via Super Admin » restent à réaliser avec une session propriétaire connectée.
