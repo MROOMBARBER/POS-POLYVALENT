@@ -42,6 +42,17 @@ export default function PushControls({tenantId,auth}){
    setEnabled(true);setMessage('Notifications activées sur ce téléphone.');
   }catch(e){setMessage(e.message||'Erreur de notification.')}finally{setBusy(false)}
  }
+ async function testNotification(){
+  setBusy(true);setMessage('');
+  try{
+   if(!auth?.currentUser)throw Error('Reconnectez-vous.');
+   const token=await auth.currentUser.getIdToken();
+   const response=await fetch('/api/push/test',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({tenantId})});
+   const result=await response.json();
+   if(!response.ok)throw Error(result.error||'Envoi du test impossible.');
+   setMessage('Test envoyé à '+result.sent+' appareil(s). Vérifiez votre téléphone et ses réglages de notification.');
+  }catch(e){setMessage(e.message||'Test indisponible.')}finally{setBusy(false)}
+ }
  async function deactivate(){
   setBusy(true);setMessage('');
   try{
@@ -58,11 +69,12 @@ export default function PushControls({tenantId,auth}){
  }
  return <section className="section waiter-notification">
   <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:9}}><Smartphone size={22}/><h2 style={{margin:0}}>Notifications sur téléphone</h2></div>
-  <p style={{fontSize:13,color:'#718093'}}>Recevez une alerte lorsque le client appuie sur « Appeler serveur » ou « Demander l’addition », même quand le tableau de bord est fermé.</p>
+  <p style={{fontSize:13,color:'#718093'}}>Recevez une alerte pour les nouvelles commandes, appels serveur et demandes d’addition, même quand le tableau de bord est fermé.</p>
   {support==='unsupported'?<p>Votre navigateur ne prend pas en charge les notifications Push. Utilisez Chrome sur Android ou ajoutez MAMOUN POS à l’écran d’accueil de votre iPhone.</p>:
    support==='install-ios'?<p><b>iPhone :</b> ouvrez ce site dans Safari → Partager → <b>Sur l’écran d’accueil</b>. Ouvrez ensuite MAMOUN POS depuis son icône, connectez-vous et activez les notifications ici (iOS 16.4 ou plus récent).</p>:
    <div style={{display:'flex',gap:9,flexWrap:'wrap'}}>
     <button className="btn primary" type="button" disabled={busy} onClick={activate}><Bell size={16}/>{busy?'Patientez…':enabled?'Réactiver / vérifier':'Activer les notifications'}</button>
+    {enabled&&<button className="btn outline" type="button" disabled={busy} onClick={testNotification}><Bell size={16}/> Tester la notification</button>}
     {enabled&&<button className="btn outline" type="button" disabled={busy} onClick={deactivate}><BellOff size={16}/> Désactiver</button>}
    </div>}
   {message&&<p role="status" style={{marginTop:9,fontSize:13}}>{message}</p>}
