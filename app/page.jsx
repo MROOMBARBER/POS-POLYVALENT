@@ -8,6 +8,7 @@ import {auth,db,config,firebaseReady} from '../lib/firebase';
 import SubscriptionsPanel from '../components/SubscriptionsPanel';
 import WaiterDashboard from '../components/WaiterDashboard';
 import ReceiptPrinter from '../components/ReceiptPrinter';
+import {drawerEnabled,openCashDrawer} from '../lib/cash-drawer';
 import DailyRevenue from '../components/DailyRevenue';
 import {subscriptionStatus,casablancaDate,DEFAULT_MONTHLY_PRICE_MAD,daysUntilSubscriptionExpiry,subscriptionExpiringSoon} from '../lib/subscriptions';
 const tabs=[['overview',LayoutDashboard,'Vue générale'],['server',Bell,'Serveur'],['orders',ClipboardList,'Commandes'],['cash',ShoppingBag,'Caisse POS'],['printer',Printer,'Impression 80mm'],['kitchen',CookingPot,'Cuisine'],['menu',UtensilsCrossed,'Carte & prix'],['tables',Grid2X2,'Tables & QR'],['team',Users,'Équipe'],['settings',Settings,'Personnalisation']];
@@ -49,7 +50,14 @@ export default function App(){
   async saveProduct(data,id){setBusy(true);try{const p={name:String(data.name).trim(),description:data.description||'',category:data.category||'Carte',image:data.image||'',price:Number(data.price),active:data.active!==false};if(!p.name||!Number.isFinite(p.price)||p.price<0)throw Error('Nom et prix valide requis');if(id)await updateDoc(doc(db,'tenants',tenantId,'products',id),p);else await addDoc(collection(db,'tenants',tenantId,'products'),p);toast('Carte enregistrée.');return true}catch(e){fail(e);return false}finally{setBusy(false)}},
   async addTable(name){try{await addDoc(collection(db,'tenants',tenantId,'tables'),{name,active:true});toast('Table ajoutée.')}catch(e){fail(e)}},
   async updateStatus(id,status){try{await updateDoc(doc(db,'tenants',tenantId,'orders',id),{status,updatedAt:serverTimestamp()});toast('Commande mise à jour.')}catch(e){fail(e)}},
-  async payOrder(id,paymentMethod){try{await updateDoc(doc(db,'tenants',tenantId,'orders',id),{status:'paid',paymentMethod,paidAt:serverTimestamp(),updatedAt:serverTimestamp()});toast('Commande encaissée.')}catch(e){fail(e)}},
+  async payOrder(id,paymentMethod){try{
+   if(!['cash','card'].includes(paymentMethod))throw Error('Mode de paiement invalide');
+   await updateDoc(doc(db,'tenants',tenantId,'orders',id),{status:'paid',paymentMethod,paidAt:serverTimestamp(),updatedAt:serverTimestamp()});
+   if(paymentMethod==='cash'&&drawerEnabled(tenantId)){
+    try{await openCashDrawer();toast('Paiement Espèces enregistré. Signal d’ouverture du tiroir envoyé au WD950.');}
+    catch(drawerError){setError('Paiement Espèces ENREGISTRÉ, mais tiroir non ouvert : '+(drawerError?.message||'Vérifiez Agent Tiroir WD950'));}
+   }else toast(paymentMethod==='card'?'Paiement TPE enregistré. Tiroir maintenu fermé.':'Paiement Espèces enregistré. Activez le tiroir dans Impression 80mm si nécessaire.');
+  }catch(e){fail(e)}},
   async requestDone(id){try{await updateDoc(doc(db,'tenants',tenantId,'requests',id),{status:'done',updatedAt:serverTimestamp()})}catch(e){fail(e)}},
   async updateTenant(data){try{await updateDoc(doc(db,'tenants',tenantId),data);toast('Modifications enregistrées.')}catch(e){fail(e)}},
   async upload(file){if(!file)return null;if(!['image/jpeg','image/png','image/webp','image/gif'].includes(file.type)||file.size>3.5*1024*1024)throw Error('Image JPEG, PNG, WebP ou GIF (3,5 Mo max)');const payload=new FormData();payload.append('tenantId',tenantId);payload.append('file',file);const token=await auth.currentUser.getIdToken();const response=await fetch('/api/staff-upload',{method:'POST',headers:{Authorization:`Bearer ${token}`},body:payload});const result=await response.json();if(!response.ok)throw Error(result.error||'Téléversement impossible');return result.url},
