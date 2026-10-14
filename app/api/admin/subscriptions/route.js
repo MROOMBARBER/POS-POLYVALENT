@@ -1,8 +1,8 @@
 import {NextResponse} from 'next/server';
 import {getAuth} from 'firebase-admin/auth';
-import {FieldValue} from 'firebase-admin/firestore';
+import {FieldValue,Timestamp} from 'firebase-admin/firestore';
 import {getAdminDb} from '../../../../lib/firebase-admin';
-import {normalizeSubscription,subscriptionStatus} from '../../../../lib/subscriptions';
+import {normalizeSubscription,subscriptionStatus,moroccoExpiryExclusive} from '../../../../lib/subscriptions';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -32,7 +32,7 @@ export async function POST(request){
     if(old.isDemo===true)throw Object.assign(new Error('Le café de démonstration reste gratuit'),{status:409});
     if(old.status!=='active')throw Object.assign(new Error('Réactivez cet établissement avant de modifier son abonnement'),{status:409});
     const prior=old.subscription||null;
-    const next={...subscription,updatedAt:FieldValue.serverTimestamp(),updatedBy:auth.uid};
+    const next={...subscription,expiresAt:subscription.status==='active'?Timestamp.fromMillis(moroccoExpiryExclusive(subscription.endsOn)):null,updatedAt:FieldValue.serverTimestamp(),updatedBy:auth.uid};
     const eventRef=tenantRef.collection('subscriptionEvents').doc();
     transaction.update(tenantRef,{subscription:next});
     transaction.create(eventRef,{
