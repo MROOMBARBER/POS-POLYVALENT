@@ -1,11 +1,12 @@
 'use client';
-import {useState} from 'react';
-import {createUserWithEmailAndPassword,signInWithEmailAndPassword,sendEmailVerification,sendPasswordResetEmail} from 'firebase/auth';
+import {useEffect,useState} from 'react';
+import {createUserWithEmailAndPassword,signInWithEmailAndPassword,sendEmailVerification,sendPasswordResetEmail,onAuthStateChanged} from 'firebase/auth';
 import {auth} from '../../lib/firebase';
 
 export default function ActivateOwner(){
- const [email,setEmail]=useState(''),[password,setPassword]=useState(''),[pending,setPending]=useState(false);
+ const [email,setEmail]=useState(''),[password,setPassword]=useState(''),[pending,setPending]=useState(false),[activeUser,setActiveUser]=useState(null);
  const [message,setMessage]=useState(''),[error,setError]=useState('');
+ useEffect(()=>{if(!auth)return;return onAuthStateChanged(auth,user=>{setActiveUser(user);if(user?.email)setEmail(user.email)})},[]);
  async function perform(mode){
   if(!auth){setError('Firebase Authentication n’est pas configuré.');return}
   setPending(true);setError('');setMessage('');
@@ -36,6 +37,28 @@ export default function ActivateOwner(){
    setError(descriptions[e.code]||e.message||'Erreur imprévue');
   }finally{setPending(false)}
  }
+ async function activateCurrent(){
+  if(!auth?.currentUser){setError('Connectez-vous d’abord à votre compte.');return}
+  setPending(true);setMessage('');setError('');
+  try{
+   const user=auth.currentUser;
+   await user.reload();
+   if(!user.emailVerified){
+    await sendEmailVerification(user);
+    setMessage('Votre e-mail n’est pas encore vérifié. Nous venons d’envoyer un lien de validation. Ouvrez-le depuis votre boîte e-mail, puis revenez cliquer sur « Vérifier et activer ma session ».');
+    return;
+   }
+   const token=await user.getIdToken(true);
+   const res=await fetch('/api/setup-owner',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:'{}'});
+   const data=await res.json();
+   if(!res.ok)throw Error(data.error||'Activation impossible');
+   setMessage('Accès Super Admin activé. Ouverture de votre dashboard…');
+   window.location.replace('/');
+  }catch(e){
+   if(e.code==='auth/too-many-requests')setError('Trop de demandes, réessayez dans quelques instants.');
+   else setError(e.message||'Impossible de valider ce compte.');
+  }finally{setPending(false)}
+ }
  async function resetPassword(){
   if(!auth){setError('Firebase Authentication n’est pas configuré.');return}
   const address=email.trim().toLowerCase();
@@ -49,8 +72,15 @@ export default function ActivateOwner(){
  async function resend(){
   setPending(true);setError('');setMessage('');
   try{
-   const credential=await signInWithEmailAndPassword(auth,email.trim().toLowerCase(),password);
-   await sendEmailVerification(credential.user);
+   let user=auth?.currentUser;
+   const requested=email.trim().toLowerCase();
+   if(!user||user.email?.toLowerCase()!==requested){
+    const credential=await signInWithEmailAndPassword(auth,requested,password);
+    user=credential.user;
+   }
+   await user.reload();
+   if(user.emailVerified){setMessage('Votre adresse est déjà vérifiée. Cliquez sur « Vérifier et activer ma session ».');return}
+   await sendEmailVerification(user);
    setMessage('E-mail de vérification envoyé.');
   }catch(e){setError(e.message||'Erreur d’envoi')}finally{setPending(false)}
  }
@@ -61,6 +91,7 @@ export default function ActivateOwner(){
    </div>
    <h1 style={{fontSize:28,marginBottom:8}}>Activer votre espace propriétaire</h1>
    <p style={{color:'#adbbc5',fontSize:14,lineHeight:1.6}}>Cette opération crée l’accès Super Admin du réseau. Utilisez uniquement votre adresse e-mail personnelle autorisée.</p>
+   {activeUser&&<p style={{fontSize:14,padding:12,background:'#244032',borderRadius:10,color:'#c6f3d6'}}>Session Firebase connectée : <b>{activeUser.email}</b></p>}
    <form onSubmit={e=>{e.preventDefault();perform('signin')}} style={{display:'grid',gap:15,marginTop:23}}>
     <label style={{display:'grid',gap:8,fontSize:14}}>Adresse e-mail
      <input type="email" autoComplete="email" required value={email} onChange={e=>setEmail(e.target.value)} style={{padding:14,borderRadius:11,border:'1px solid #48535b',background:'#0d1923',color:'white',fontSize:16}}/>
@@ -70,6 +101,7 @@ export default function ActivateOwner(){
     </label>
     {error&&<p role="alert" style={{color:'#ffa7a4',fontSize:14,margin:0}}>{error}</p>}
     {message&&<p role="status" style={{color:'#a4e2ba',fontSize:14,margin:0}}>{message}</p>}
+    {activeUser&&<button type="button" disabled={pending} onClick={activateCurrent} style={{padding:15,border:0,borderRadius:11,background:'#90d9ab',color:'#0e2017',fontSize:15,fontWeight:700,cursor:'pointer'}}>Vérifier et activer ma session actuelle</button>}
     <button type="submit" disabled={pending} style={{padding:15,border:0,borderRadius:11,background:'#e6a16c',color:'#1a1511',fontSize:15,fontWeight:700,cursor:'pointer'}}>{pending?'Traitement…':'Activer mon compte'}</button>
     <button type="button" disabled={pending} onClick={()=>perform('signup')} style={{padding:13,border:'1px solid #58636e',borderRadius:11,background:'transparent',color:'#e7ecf0',cursor:'pointer'}}>Créer mon compte propriétaire</button>
     <button type="button" disabled={pending} onClick={resend} style={{background:'transparent',color:'#acbac7',border:0,padding:5,textDecoration:'underline',cursor:'pointer'}}>Renvoyer la vérification</button>
