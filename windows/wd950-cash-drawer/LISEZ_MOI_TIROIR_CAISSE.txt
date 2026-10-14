@@ -1,0 +1,50 @@
+MAMOUN POS · WD950 · TIROIR CAISSE AUTO (Windows 10/11)
+========================================================
+
+Matériel nécessaire :
+  WD950 Windows + imprimante thermique USB 80mm compatible ESC/POS
+  + tiroir-caisse avec câble RJ11/RJ12 vers prise "DK / Cash Drawer" DE L'IMPRIMANTE.
+Attention : RJ11/RJ12 n'est PAS un port Ethernet. Ne pas inventer voltage/pinout :
+vérifiez les spécifications de l'imprimante et du tiroir.
+
+Installation (SUR LE WD950, pas sur le téléphone) :
+  1. Imprimante USB allumée, pilote Windows installé, page test OK.
+  2. Le tiroir est branché sur la prise DK de l'imprimante.
+  3. Double-cliquer 1_CONFIGURER_TIROIR.bat, choisir le NOM de l'imprimante 80mm.
+     Broche 0 = pin 2 (standard); sur certains modèles broche 1 = pin 5.
+  4. Double-cliquer 2_DEMARRER_AGENT_TIROIR.bat. Garder cette fenêtre ouverte.
+  5. Dans Chrome du WD950, ouvrir https://pos-polyvalent.vercel.app
+     et se connecter comme Administrateur/Caissier.
+  6. Cliquer "Impression 80mm" > "Tiroir-caisse automatique" >
+     "Tester ouverture tiroir". Autoriser si Chrome demande l'accès au réseau local.
+  7. Si le tiroir s'ouvre, cliquer "Activer tiroir sur ce WD950".
+
+Utilisation :
+  Caisse/Commandes : quand une commande est SERVIE, cliquer "Espèces".
+  Le paiement est enregistré dans Firebase AVANT l'ordre d'ouverture locale.
+  "TPE" n'ouvre jamais le tiroir. Le ticket de cuisine non plus.
+  Si l'ouverture échoue, la vente reste enregistrée : le Dashboard l'indique.
+  Les boutons de test sont disponibles uniquement aux comptes caissier/admin/owner.
+
+IMPORTANT : Dans le DRIVER d'imprimante, désactiver l'option qui ouvre le
+tiroir A CHAQUE impression, sinon les tickets cuisine ouvriraient le tiroir.
+Notre programme envoie ESC p séparément UNIQUEMENT après paiement cash.
+
+Sécurité :
+  - Agent local écoute UNIQUEMENT 127.0.0.1:17953, pas Internet.
+  - Accepte les demandes du site https://pos-polyvalent.vercel.app uniquement.
+  - Le compte connecté reste responsable des encaissements. Un bouton test local
+    peut ouvrir le tiroir; garder l'ordinateur Windows physiquement protégé.
+  - Ne pas exécuter de scripts reçus d'autres sources.
+
+Dépannage :
+  "Agent WD950 ne répond pas" : lancer fichier 2 et vérifier la fenêtre PowerShell.
+  Chrome refuse : autoriser l'accès au réseau local du site MAMOUN POS.
+  "Commande ESC/POS refusée" : vérifier nom du pilote/ESC-POS RAW. Certains
+    pilotes USB ne supportent pas le RAW. Consulter le manuel du fabricant.
+  L'agent dit "envoyée" mais rien ne s'ouvre : vérifier prise DK, RJ11/RJ12,
+    tension et broche 0 / 1; pas de tension improvisée.
+  Le tiroir s'ouvre pour toutes les commandes : désactiver "Drawer kick on print"
+    dans les paramètres du pilote Windows.
+
+Version : MAMOUN POS · Agent tiroir Windows / Local USB.
