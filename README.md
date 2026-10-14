@@ -1,40 +1,31 @@
-# MAMOUN POS — POS multi-restaurants / cafés
+# MAMOUN POS — réseau de cafés et restaurants
 
-Application Next.js + Firebase indépendante. Références exactes :
-- **Source GitHub** : MROOMBARBER/POS-POLYVALENT (branche main)
-- **Vercel** : pos-polyvalent — https://pos-polyvalent.vercel.app
-- **Firebase** : pospolyvalent (ce projet uniquement)
+Projet séparé de tous les anciens projets.
+- GitHub : https://github.com/MROOMBARBER/POS-POLYVALENT
+- Production : https://pos-polyvalent.vercel.app
+- Firebase : pospolyvalent
 
-## Déploiement actuel
-Les variables de configuration Firebase Web (apiKey, authDomain, projectId, storageBucket, appId) sont installées dans Vercel. Cela configure le SDK client, **mais ne donne pas les droits administratifs au serveur**.
+## Vérification de l'installation (14 octobre 2026)
+- Le déploiement Vercel est READY.
+- Configuration Firebase Web et credentials Firebase Admin présents et correspondant à pospolyvalent.
+- Les règles Firestore ont été publiées avec succès via Firebase Admin SDK.
+- Les règles Storage n'ont pas été publiées : refus Firebase lors de la tentative.
+- **Diagnostic confirmé : le bucket pospolyvalent.firebasestorage.app n'existe pas.** L'ancien nom pospolyvalent.appspot.com ne répond pas non plus. Le Storage doit être réellement provisionné dans la console Firebase, avec facturation Blaze si nécessaire. Ne pas considérer le téléchargement d'images comme fonctionnel avant création du bucket et test d'une image réelle.
+- Un endpoint authentifié `POST /api/staff-upload` est prêt à gérer des photos sur le serveur (types JPEG/PNG/WebP/GIF, maximum 3,5 Mo) et à vérifier le rôle du personnel et l'établissement. Il est indépendant des règles Storage côté client mais dépend d'un bucket réel et des permissions Google Cloud Storage.
+- L'activation initiale du Super Admin se fait sur `/setup-owner` et nécessite `MAMOUN_OWNER_EMAIL` dans l'environnement Production, égal à l'e-mail vérifié dans Firebase Authentication. Elle est verrouillée par une transaction Firestore à usage unique. Aucun e-mail propriétaire n'a été désigné à ce jour.
+- Les options temporaires `MAMOUN_DEPLOY_RULES_ON_BUILD` et `MAMOUN_PROBE_STORAGE_ON_BUILD` sont désactivées sur Vercel.
 
-### Il reste à activer avant tout usage réel
-1. Dans Firebase **pospolyvalent**, activer **Authentication > Sign-in method > Email/Password**, **Cloud Firestore** et **Storage**. Le bucket Storage peut nécessiter l'activation de la facturation.
-2. Déployer les règles livrées avec ce dépôt (uniquement sur **pospolyvalent**) à partir d'un terminal administrateur authentifié :
-   `firebase deploy --project pospolyvalent --only firestore:rules,storage`
-3. Dans Vercel **pos-polyvalent**, définir **FIREBASE_SERVICE_ACCOUNT_JSON** comme variable d'environnement **encrypted/sensitive**, avec la clé JSON générée pour **pospolyvalent**. Ne jamais la publier dans GitHub, une conversation, ni un navigateur. L'application rejette une clé d'un autre projet.
-4. Dans Firebase Authentication, créer le compte **propriétaire**, sur une adresse e-mail contrôlée. Dans un environnement de confiance ayant accès à la clé de service, exécuter :
-   `node scripts/bootstrap-owner.mjs votre-email@example.com`
-   Cet utilitaire nécessite **FIREBASE_SERVICE_ACCOUNT_JSON** dans son environnement sécurisé et n'autorise que le projet **pospolyvalent**.
-5. Redéployer Vercel après ajout des variables, ouvrir `/api/setup-status` et vérifier les indicateurs. Cet endpoint ne teste pas à lui seul les connexions réelles.
-6. Tester la connexion propriétaire, création d'un établissement, création d'un admin, modification du menu et du logo, création d'une table, parcours QR/NFC, commande client, réception en cuisine, encaissement, isolation des données entre deux établissements.
-
-## Fonctionnalités du code
-- Propriétaire (Super Admin) et comptes isolés par établissement.
-- Gestion du catalogue, des prix, images, catégories, tables et identité visuelle dans le dashboard.
-- Caisse POS, affichage cuisine et gestion des commandes.
-- Menu public QR/NFC; ajout au panier, appel serveur et demande d'addition (espèces/TPE).
-- Prix recalculés côté serveur à partir de la base. Préférence « carte » ≠ paiement TPE traité.
-- Rôles : propriétaire, admin, serveur, caissier, cuisine.
+## Procédure de finalisation
+1. Ouvrir https://console.firebase.google.com/project/pospolyvalent/storage et créer réellement le bucket par défaut (la version Blaze peut être exigée), puis vérifier l'onglet « Fichiers » et le nom exact.
+2. Configurer la variable Vercel `MAMOUN_OWNER_EMAIL` (Production uniquement). Ne jamais enregistrer de mot de passe ou clé privée dans GitHub.
+3. Sur https://pos-polyvalent.vercel.app/setup-owner : créer le compte, vérifier l'adresse e-mail via Firebase, puis choisir « Activer mon compte ». Seule l'adresse e-mail autorisée peut être Super Admin.
+4. Tester une vraie connexion, créer deux établissements, ajouter leurs administrateurs, leurs tables et leurs produits; vérifier que les données de chaque établissement sont séparées et que leurs QR fonctionnent.
+5. Tester un vrai upload de logo/photo avec le nouveau backend, puis passer une commande, vérifier la cuisine, le paiement marqué et l'appel serveur.
+6. Tester les scénarios adverses et le taux limite public avant l'ouverture à de nombreux restaurants.
 
 ## Sécurité
-- Le code et les rules **ne s'appliquent à Firebase que lorsqu'elles sont déployées** : committer un fichier `.rules` dans GitHub ne les active pas.
-- Garder les credentials du Firebase Admin SDK exclusivement côté serveur, chiffrés dans Vercel.
-- Firebase web `apiKey` est une clé publique de configuration SDK, pas une clé d'administration. Restreindre les APIs/domaines autorisés selon les bonnes pratiques Firebase.
-- Avant vente à grande échelle : App Check, protection anti-abus, sauvegardes, audit des flux de paiements, RGPD/données personnelles, tests d'isolation entre tenants et surveillance des quotas.
-- Les paiements par TPE et les reçus fiscaux certifiés ne sont **pas** intégrés.
-
-## Diagnostic
-- `GET /api/setup-status` : présence de la configuration publique et Firebase Admin (sans secrets).
-- Si `adminConfigured=false`, le backend des commandes publiques et de création des comptes ne peut pas fonctionner.
-- `readyState=READY` sur Vercel signifie **build réussi**, pas que Firebase Authentication/Firestore/Storage fonctionnent.
+- `FIREBASE_SERVICE_ACCOUNT_JSON` : variable chiffrée/sensible de Vercel, côté serveur exclusivement; le backend vérifie que `project_id` correspond à `pospolyvalent`.
+- Aucune clé privée ne doit être copiée dans le dépôt.
+- En l'absence de bucket réel, la fonction photo ne peut pas réussir.
+- Le champ TPE signifie demande au serveur d'apporter son terminal de paiement, pas encaissement TPE intégré.
+- Pour commercialiser à grande échelle : sauvegardes, limitation des abus par identité/IP, vérification des permissions et des journaux, impression fiscale applicable et tests d'isolation multi-tenants.
