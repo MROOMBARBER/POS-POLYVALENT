@@ -89,7 +89,7 @@ try {
   try {
    $client.ReceiveTimeout=4500;$client.SendTimeout=4500
    $stream=$client.GetStream()
-   $reader=New-Object System.IO.StreamReader($stream,[System.Text.Encoding]::ASCII,$false,1024,$true)
+   $reader=[System.IO.StreamReader]::new($stream,[System.Text.Encoding]::ASCII,$false,1024,$true)
    $line=$reader.ReadLine()
    if(-not $line){continue}
    if($line.Length -gt 800){continue}
