@@ -1,6 +1,7 @@
 import {NextResponse} from 'next/server';
 import {FieldValue} from 'firebase-admin/firestore';
 import {getAdminDb} from '../../../../lib/firebase-admin';
+import {canOperate} from '../../../../lib/subscriptions';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
 function err(message,status=400){return NextResponse.json({error:message},{status,headers:{'Cache-Control':'no-store'}})}
@@ -9,7 +10,7 @@ async function context(db,id){if(!/^[A-Za-z0-9_-]{5,100}$/.test(id||''))return n
 export async function GET(req,{params}){
  try{
   const {action}=await params;if(action!=='menu')return err('Route inconnue',404);
-  const db=getAdminDb();const id=new URL(req.url).searchParams.get('tenantId');const c=await context(db,id);if(!c)return err('Établissement indisponible',404);
+  const db=getAdminDb();const id=new URL(req.url).searchParams.get('tenantId');const c=await context(db,id);if(!c)return err('Établissement indisponible',404);if(!canOperate(c.tenant))return err('Abonnement du restaurant expiré ou en attente de paiement. Contactez l’établissement.',402);
   const [products,tables]=await Promise.all([c.ref.collection('products').get(),c.ref.collection('tables').get()]);
   return NextResponse.json({tenant:{id,name:c.tenant.name,subtitle:c.tenant.subtitle||'',logo:c.tenant.logo||'',cover:c.tenant.cover||'',accent:c.tenant.accent||'#c76d45',currency:c.tenant.currency||'MAD'},products:products.docs.filter(d=>d.data().active!==false).map(d=>({id:d.id,name:d.data().name,description:d.data().description||'',price:d.data().price,category:d.data().category||'Carte',image:d.data().image||''})),tables:tables.docs.filter(d=>d.data().active!==false).map(d=>({id:d.id,name:d.data().name}))},{headers:{'Cache-Control':'no-store'}});
  }catch(e){console.error('menu',e.message);return err('Service indisponible',503)}
@@ -17,7 +18,7 @@ export async function GET(req,{params}){
 export async function POST(req,{params}){
  try{
   const {action}=await params;if(!['order','call','bill'].includes(action))return err('Route inconnue',404);
-  const body=await req.json();const db=getAdminDb();const c=await context(db,body.tenantId);if(!c)return err('Établissement indisponible',404);
+  const body=await req.json();const db=getAdminDb();const c=await context(db,body.tenantId);if(!c)return err('Établissement indisponible',404);if(!canOperate(c.tenant))return err('Abonnement du restaurant expiré ou suspendu. Contactez l’établissement.',402);
   const tableId=clean(body.tableId,100);const ts=await c.ref.collection('tables').doc(tableId).get();if(!ts.exists||ts.data().active===false)return err('Table invalide');
   const now=Date.now();const limiter=c.ref.collection('rateLimits').doc(clean(body.clientId,100)||'anonymous');
   const permitted=await db.runTransaction(async tx=>{const snap=await tx.get(limiter);const x=snap.exists?snap.data():{};const count=x.until>now?x.count||0:0;if(count>=12)return false;tx.set(limiter,{count:count+1,until:x.until>now?x.until:now+60000,updatedAt:FieldValue.serverTimestamp()});return true});
