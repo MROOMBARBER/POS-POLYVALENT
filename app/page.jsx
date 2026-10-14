@@ -3,9 +3,8 @@ import {useEffect,useMemo,useState} from 'react';
 import {signInWithEmailAndPassword,signOut,onAuthStateChanged,createUserWithEmailAndPassword,getAuth} from 'firebase/auth';
 import {initializeApp,deleteApp} from 'firebase/app';
 import {collection,doc,addDoc,setDoc,updateDoc,getDoc,onSnapshot,serverTimestamp,query,where} from 'firebase/firestore';
-import {getDownloadURL,ref,uploadBytes} from 'firebase/storage';
 import {LayoutDashboard,Store,UtensilsCrossed,ClipboardList,CookingPot,Grid2X2,Users,Settings,LogOut,Plus,Trash2,ImagePlus,ExternalLink,Check,Clock,ShoppingBag,Bell,CreditCard,Copy,ArrowLeft,Menu as MenuIcon,ShieldCheck,Printer,RefreshCw} from 'lucide-react';
-import {auth,db,storage,config,firebaseReady} from '../lib/firebase';
+import {auth,db,config,firebaseReady} from '../lib/firebase';
 const tabs=[['overview',LayoutDashboard,'Vue générale'],['orders',ClipboardList,'Commandes'],['cash',ShoppingBag,'Caisse POS'],['kitchen',CookingPot,'Cuisine'],['menu',UtensilsCrossed,'Carte & prix'],['tables',Grid2X2,'Tables & QR'],['team',Users,'Équipe'],['settings',Settings,'Personnalisation']];
 const money=n=>`${Number(n||0).toFixed(2).replace('.00','')} DH`;
 const pretty=t=>{try{return t?.toDate?t.toDate().toLocaleString('fr-MA'):''}catch{return ''}};
@@ -45,7 +44,7 @@ export default function App(){
   async payOrder(id,paymentMethod){try{await updateDoc(doc(db,'tenants',tenantId,'orders',id),{status:'paid',paymentMethod,updatedAt:serverTimestamp()});toast('Commande encaissée.')}catch(e){fail(e)}},
   async requestDone(id){try{await updateDoc(doc(db,'tenants',tenantId,'requests',id),{status:'done',updatedAt:serverTimestamp()})}catch(e){fail(e)}},
   async updateTenant(data){try{await updateDoc(doc(db,'tenants',tenantId),data);toast('Modifications enregistrées.')}catch(e){fail(e)}},
-  async upload(file,folder='images'){if(!file)return null;if(!['image/jpeg','image/png','image/webp','image/gif'].includes(file.type))throw Error('Format accepté : JPEG, PNG, WebP ou GIF');if(file.size>5*1024*1024)throw Error('Image limitée à 5 Mo');const path=`tenants/${tenantId}/images/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_')}`;const r=ref(storage,path);await uploadBytes(r,file,{contentType:file.type});return await getDownloadURL(r)},
+  async upload(file){if(!file)return null;if(!['image/jpeg','image/png','image/webp','image/gif'].includes(file.type)||file.size>3.5*1024*1024)throw Error('Image JPEG, PNG, WebP ou GIF (3,5 Mo max)');const payload=new FormData();payload.append('tenantId',tenantId);payload.append('file',file);const token=await auth.currentUser.getIdToken();const response=await fetch('/api/staff-upload',{method:'POST',headers:{Authorization:`Bearer ${token}`},body:payload});const result=await response.json();if(!response.ok)throw Error(result.error||'Téléversement impossible');return result.url},
   async createPOSOrder(items,table){try{if(!items.length)throw Error('Panier vide');const ordered=items.map(i=>({productId:i.id,name:i.name,unitPrice:Number(i.price),qty:i.qty,total:Number(i.price)*i.qty}));const token=await auth.currentUser.getIdToken();const response=await fetch('/api/staff/order',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({tenantId,tableId:table?.id||'counter',items:items.map(i=>({id:i.id,qty:i.qty}))})});const result=await response.json();if(!response.ok)throw Error(result.error||'Commande refusée');toast('Commande envoyée en cuisine.');return true}catch(e){fail(e);return false}}
  };
  const navTabs= tabs.filter(([k])=>canManage||(role==='kitchen'?['orders','kitchen'].includes(k):role==='cashier'?['overview','orders','cash'].includes(k):['orders','cash'].includes(k)));
