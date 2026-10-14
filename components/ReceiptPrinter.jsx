@@ -43,9 +43,9 @@ function printViaBrowser(html){
     ended=true;cleanup();resolve();
    }catch(e){ended=true;cleanup();reject(e)}
   };
-  document.body.appendChild(frame);
-  timeout=setTimeout(()=>{if(!ended){ended=true;frame.remove();reject(Error('La fenêtre d’impression ne répond pas.'))}},9000);
   frame.srcdoc=html;
+  timeout=setTimeout(()=>{if(!ended){ended=true;frame.remove();reject(Error('La fenêtre d’impression ne répond pas.'))}},9000);
+  document.body.appendChild(frame);
  });
 }
 /**
